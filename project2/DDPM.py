@@ -27,14 +27,14 @@ class ConditionalDDPM(nn.Module):
         #   Outputs:
         #       one dictionary containing the variance schedule
         #       $\beta_t$ along with other potentially useful constants.       
-        t = t_s / T
+        t = (t_s - 1) / (T - 1)
         beta_t = beta_1 + t * (beta_T - beta_1)
         sqrt_beta_t = torch.sqrt(beta_t)
 
         alpha_t = 1 - beta_t
         oneover_sqrt_alpha = 1 / torch.sqrt(alpha_t)
 
-        t_all = torch.arange(1, T + 1, device=device).float() / T
+        t_all = (torch.arange(1, T + 1, device=device).float() - 1) / (T - 1)
         beta_t_all = beta_1 + t_all * (beta_T - beta_1)
         alpha_t_all = 1 - beta_t_all
 
