@@ -69,10 +69,21 @@ class ConditionalDDPM(nn.Module):
         #   Outputs:
         #       noise_loss: loss computed by the self.loss_fn function.  
         B = images.shape[0]
+        device = images.device
+        c = F.one_hot(
+            conditions,
+            num_classes=self.modelconfig.num_classes
+        ).float().to(device)
 
-        c = F.one_hot(conditions, num_classes=self.modelconfig.num_classes).float().to(images.device)
-
-        t = torch.randint(1, self.modelconfig.T+1, (B,1), device=images.device)
+        # Classifier-free guidance training:
+        # with probability mask_p, replace condition with unconditional mask value
+        mask = (torch.rand(B, device=device) < self.modelconfig.mask_p).view(B, 1)
+        c = torch.where(
+            mask,
+            torch.full_like(c, float(self.modelconfig.condition_mask_value)),
+            c
+        )
+        t = torch.randint(1, self.modelconfig.T+1, (B,1), device=device)
         eps = torch.randn_like(images)
 
         sched = self.scheduler(t)
@@ -107,6 +118,7 @@ class ConditionalDDPM(nn.Module):
         B = conditions.shape[0]
 
         c = F.one_hot(conditions, num_classes=self.modelconfig.num_classes).float().to(device)
+        c_uncond = torch.full_like(c, float(self.modelconfig.condition_mask_value))
 
         X_t = torch.randn(
             B,
@@ -126,7 +138,9 @@ class ConditionalDDPM(nn.Module):
 
             t_norm = t_tensor.float() / T
 
-            eps = self.network(X_t, t_norm, c)
+            eps_cond = self.network(X_t, t_norm, c)
+            eps_uncond = self.network(X_t, t_norm, c_uncond)
+            eps_guided = (1.0 + omega) * eps_cond - omega * eps_uncond
 
             if t > 1:
                 z = torch.randn_like(X_t)
@@ -134,7 +148,7 @@ class ConditionalDDPM(nn.Module):
                 z = torch.zeros_like(X_t)
 
             X_t = oneover_sqrt_alpha * (
-                X_t - (beta_t / sqrt_oneminus_alpha_bar) * eps
+                X_t - (beta_t / sqrt_oneminus_alpha_bar) * eps_guided
             ) + torch.sqrt(beta_t) * z
 
 
