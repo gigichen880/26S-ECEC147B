@@ -100,6 +100,7 @@ class ConditionalDDPM(nn.Module):
         # ==================================================== #
         return noise_loss
 
+    @torch.no_grad()
     def sample(self, conditions, omega):
         T = self.modelconfig.T
         # ==================================================== #
