@@ -34,7 +34,7 @@ class ConditionalDDPM(nn.Module):
         alpha_t = 1 - beta_t
         oneover_sqrt_alpha = 1 / torch.sqrt(alpha_t)
 
-        t_all = (torch.arange(1, T + 1, device=device).float() - 1) / (T - 1)
+        t_all = (torch.arange(1, T + 1, device=t_s.device).float() - 1) / (T - 1)
         beta_t_all = beta_1 + t_all * (beta_T - beta_1)
         alpha_t_all = 1 - beta_t_all
 
@@ -70,12 +70,12 @@ class ConditionalDDPM(nn.Module):
         #       noise_loss: loss computed by the self.loss_fn function.  
         B = images.shape[0]
         device = images.device
+
         c = F.one_hot(
             conditions,
             num_classes=self.modelconfig.num_classes
         ).float().to(device)
 
-        # Classifier-free guidance training:
         # with probability mask_p, replace condition with unconditional mask value
         mask = (torch.rand(B, device=device) < self.modelconfig.mask_p).view(B, 1)
         c = torch.where(
@@ -83,6 +83,7 @@ class ConditionalDDPM(nn.Module):
             torch.full_like(c, float(self.modelconfig.condition_mask_value)),
             c
         )
+        
         t = torch.randint(1, self.modelconfig.T+1, (B,1), device=device)
         eps = torch.randn_like(images)
 
