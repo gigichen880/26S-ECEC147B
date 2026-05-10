@@ -82,10 +82,14 @@ def solver(model_name):
 
     ### ========= TODO : START ========= ###
     # Define the loss function
-    loss = None
+    loss = nn.CrossEntropyLoss()
 
     # Define the optimizer
-    optimizer = None
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
+    train_losses = []
+    eval_losses = []
+    eval_iterations = []
+    eval_loss = 0.0
     ### ======== TODO : END ========= ###
 
     if config.scheduler:
@@ -101,9 +105,29 @@ def solver(model_name):
         train_loss = None # You can use this variable to store the training loss for the current iteration
         ### ======== TODO : START ========= ###
         # Do the forward pass, compute the loss, do the backward pass, and update the weights with the optimizer.
+        context = context.to(device)
+        target = target.to(device)
+
+        logits = model(context)
+        if model_name == "bigram":
+            target = target.squeeze(-1)
+            train_loss = loss(logits, target)
+        elif model_name == "minigpt":
+            pass
+        else:
+            raise ValueError("Invalid model name")
         
-        
-        
+        optimizer.zero_grad()
+        train_loss.backward()
+        if config.to_clip_grad:
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                max_norm=config.gradient_clip
+            )
+
+        optimizer.step()
+
+        train_losses.append(train_loss.item())
         
         ### ======== TODO : END ========= ###
 
@@ -121,8 +145,31 @@ def solver(model_name):
             # Hint:
             # - Remember to manually break out of the evaluation loop as the dataloader wraps around the dataset.
             
-            
-            
+            eval_loss_total = 0.0
+            eval_steps = 0
+            num_eval_batches = 100
+
+            with torch.no_grad():
+                for eval_i, (eval_context, eval_target) in enumerate(eval_dataloader):
+                    if eval_i >= num_eval_batches:
+                        break
+
+                    eval_context = eval_context.to(device)
+                    eval_target = eval_target.to(device)
+
+                    eval_logits = model(eval_context)
+                    if model_name == "bigram":
+                        eval_target = eval_target.squeeze(-1)
+                        batch_eval_loss = loss(eval_logits, eval_target)
+                    elif model_name == "minigpt":
+                        pass
+                    else:
+                        raise ValueError("Invalid model name")
+                    eval_loss_total += batch_eval_loss.item()
+                    eval_steps += 1
+            eval_loss = eval_loss_total / eval_steps
+            eval_losses.append(eval_loss)
+            eval_iterations.append(i)
             
             ### ======== TODO : END ========= ###
             

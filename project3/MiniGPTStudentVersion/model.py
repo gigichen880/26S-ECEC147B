@@ -33,9 +33,9 @@ class BigramLanguageModel(nn.Module):
         super().__init__()
         # ========= TODO : START ========= #
 
-        # self.embeddings = ...
-        # self.linear = ...
-        # self.dropout = ...
+        self.embeddings = nn.Embedding(config.vocab_size, config.embed_dim)
+        self.linear = nn.Linear(config.embed_dim, config.vocab_size, bias=True)
+        self.dropout = nn.Dropout(config.dropout)
 
         # ========= TODO : END ========= #
 
@@ -56,8 +56,12 @@ class BigramLanguageModel(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
-
+        x = self.embeddings(x)
+        x = self.dropout(x)
+        x = x.squeeze(1) 
+        x = self.linear(x)
+        return x
+    
         # ========= TODO : END ========= #
 
     def _init_weights(self, module):
@@ -96,7 +100,12 @@ class BigramLanguageModel(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        for _ in range(max_new_tokens):
+            logits = self.forward(context[:, -1:])
+            probs = torch.softmax(logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1)
+            context = torch.cat((context, next_token), dim=1)
+        return context
 
         ### ========= TODO : END ========= ###
 
@@ -150,11 +159,11 @@ class SingleHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.key = ...
-        self.query = ...
-        self.value = ...
-        self.dropout = ...
-        causal_mask = ...
+        self.key = nn.Linear(input_dim, self.output_key_query_dim, bias=False)
+        self.query = nn.Linear(input_dim, self.output_key_query_dim, bias=False)
+        self.value = nn.Linear(input_dim, self.output_value_dim, bias=False)
+        self.dropout = nn.Dropout(dropout)
+        causal_mask = torch.triu(torch.ones((max_len, max_len), dtype=torch.bool), diagonal=1)
 
         # ========= TODO : END ========= #
 
@@ -180,7 +189,19 @@ class SingleHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        batch_size, num_tokens, token_dim = x.shape
+        q = self.query(x)
+        k = self.key(x)
+        v = self.value(x)
+
+        attn = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.output_key_query_dim)
+        mask = self.causal_mask[:num_tokens, :num_tokens]
+        attn = attn.masked_fill(mask, float("-inf"))
+        attn = torch.softmax(attn, dim=-1)
+
+        attn = self.dropout(attn)
+        out = torch.matmul(attn, v)
+        return out
 
         # ========= TODO : END ========= #
 
@@ -209,11 +230,22 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
 
         # ========= TODO : START ========= #
+        self.head_dim = input_dim // num_heads
 
         # Use setattr to implement the heads dynamically.
-        # self.head_{i} = ...
-        self.out = ...
-        self.dropout = ...
+        for i in range(num_heads):
+            setattr(
+                self,
+                f"head_{i}",
+                SingleHeadAttention(
+                    input_dim=input_dim, 
+                    output_key_query_dim=self.head_dim, 
+                    output_value_dim=self.head_dim, 
+                    dropout=dropout
+                ),
+            )
+        self.out = nn.Linear(input_dim, input_dim, bias=True)
+        self.dropout = nn.Dropout(dropout)
 
         # ========= TODO : END ========= #
 
@@ -232,7 +264,15 @@ class MultiHeadAttention(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        head_outputs = []
+        for i in range(self.num_heads):
+            head = getattr(self, f"head_{i}")
+            head_outputs.append(head(x))
+        
+        x = torch.cat(head_outputs, dim=-1)
+        x = self.out(x)
+        x = self.dropout(x)
+        return x
 
         # ========= TODO : END ========= #
 
@@ -261,11 +301,10 @@ class FeedForwardLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.fc1 = ...
-        self.activation = ...
-        self.fc2 = ...
-        self.fc2 = ...
-        self.dropout = ...
+        self.fc1 = nn.Linear(input_dim, feedforward_dim, bias=True)
+        self.activation = nn.GELU()
+        self.fc2 = nn.Linear(feedforward_dim, input_dim, bias=True)
+        self.dropout = nn.Dropout(dropout)
 
         # ========= TODO : END ========= #
 
@@ -284,7 +323,11 @@ class FeedForwardLayer(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.fc2(x)
+        x = self.dropout(x)
+        return x
 
         ### ========= TODO : END ========= ###
 
@@ -327,7 +370,8 @@ class LayerNorm(nn.Module):
         var = None
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        mean = input.mean(dim=-1, keepdim=True)
+        var = input.var(dim=-1, keepdim=True, unbiased=False)
 
         # ========= TODO : END ========= #
 
@@ -361,10 +405,10 @@ class TransformerLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        self.norm1 = ...
-        self.attention = ...
-        self.norm2 = ...
-        self.feedforward = ...
+        self.norm1 = LayerNorm(input_dim)
+        self.attention = MultiHeadAttention(input_dim=input_dim, num_heads=num_heads)
+        self.norm2 = LayerNorm(input_dim)
+        self.feedforward = FeedForwardLayer(input_dim=input_dim, feedforward_dim=feedforward_dim)
 
         # ========= TODO : END ========= #
 
@@ -383,7 +427,9 @@ class TransformerLayer(nn.Module):
 
         # ========= TODO : START ========= #
 
-        raise NotImplementedError
+        x = x + self.attention(self.norm1(x))
+        x = x + self.feedforward(self.norm2(x))
+        return x
 
         # ========= TODO : END ========= #
 
@@ -463,7 +509,16 @@ class MiniGPT(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        batch_size, seq_len = x.shape
+        token_embeddings = self.vocab_embedding(x)
+        positional_embeddings = self.positional_embedding(self.pos[:seq_len])
+        x = token_embeddings + positional_embeddings
+        x = self.embed_dropout(x)
+        for layer in self.transformer_layers:
+            x = layer(x)
+        x = self.prehead_norm(x)
+        x = self.head(x)
+        return x
 
         ### ========= TODO : END ========= ###
 
@@ -512,6 +567,13 @@ class MiniGPT(nn.Module):
 
         ### ========= TODO : START ========= ###
 
-        raise NotImplementedError
+        for _ in range(max_new_tokens):
+            context = context[:, -self.config.context_length:]
+            logits = self.forward(context)
+            last_token_logits = logits[:, -1, :]
+            probs = torch.softmax(last_token_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1)
+            context = torch.cat((context, next_token), dim=1)
+        return context
 
         ### ========= TODO : END ========= ###
