@@ -593,3 +593,51 @@ class MiniGPT(nn.Module):
         return context
 
         ### ========= TODO : END ========= ###
+
+    ### ========= BONUS ========= ###
+    def generate_beam_search(self, context, max_new_tokens=100, beam_width=3):
+        """
+        Use the model to generate new tokens given a context using beam search instead of greedy decoding.
+
+        Args:
+        context : torch.Tensor
+            The context is a sequence of tokens, where each token is an index in the vocabulary.
+        max_new_tokens : int
+            The maximum number of new tokens to generate.
+
+        Output:
+        torch.Tensor
+            A tensor containing the generated tokens.
+        """
+
+        input_was_1d = context.dim() == 1
+        if input_was_1d:
+            context = context.unsqueeze(0)
+
+        # List of tuples (beam_context, beam_score)
+        beams = [(context, 0)] 
+
+        for _ in range(max_new_tokens):
+            candidates = []
+            for beam_context, beam_score in beams:
+                context_cond = beam_context[:, -self.config.context_length:]
+                logits = self.forward(context_cond)
+                last_token_logits = logits[:, -1, :]
+                probs = torch.softmax(last_token_logits, dim=-1)
+
+                topk_probs, topk_indices = torch.topk(probs, k=beam_width, dim=-1) 
+
+                for j in range(beam_width):
+                    next_token = topk_indices[:, j].unsqueeze(0)
+                    new_beam_context = torch.cat((beam_context, next_token), dim=1)
+                    new_beam_score = beam_score + topk_probs[0, j].item()
+                    candidates.append((new_beam_context, new_beam_score))
+           
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            beams = candidates[:beam_width] 
+
+        best_beam_context, best_beam_score = beams[0]
+        if input_was_1d:
+          return best_beam_context.squeeze(0)
+        return best_beam_context
+
