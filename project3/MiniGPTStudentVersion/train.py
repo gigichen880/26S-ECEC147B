@@ -113,7 +113,10 @@ def solver(model_name):
             target = target.squeeze(-1)
             train_loss = loss(logits, target)
         elif model_name == "minigpt":
-            pass
+            B, T, V = logits.shape
+            logits = logits.reshape(B * T, V)
+            target = target.reshape(B * T)
+            train_loss = loss(logits, target)
         else:
             raise ValueError("Invalid model name")
         
@@ -162,7 +165,10 @@ def solver(model_name):
                         eval_target = eval_target.squeeze(-1)
                         batch_eval_loss = loss(eval_logits, eval_target)
                     elif model_name == "minigpt":
-                        pass
+                        B, T, V = eval_logits.shape
+                        eval_logits = eval_logits.reshape(B * T, V)
+                        eval_target = eval_target.reshape(B * T)
+                        batch_eval_loss = loss(eval_logits, eval_target)
                     else:
                         raise ValueError("Invalid model name")
                     eval_loss_total += batch_eval_loss.item()

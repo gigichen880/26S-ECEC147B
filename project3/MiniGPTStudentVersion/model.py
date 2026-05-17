@@ -56,9 +56,11 @@ class BigramLanguageModel(nn.Module):
 
         # ========= TODO : START ========= #
 
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
         x = self.embeddings(x)
         x = self.dropout(x)
-        x = x.squeeze(1) 
+        x = x[:, -1, :]
         x = self.linear(x)
         return x
     
@@ -100,11 +102,19 @@ class BigramLanguageModel(nn.Module):
 
         ### ========= TODO : START ========= ###
 
+        input_was_1d = context.dim() == 1
+        if input_was_1d:
+            context = context.unsqueeze(0)
+
         for _ in range(max_new_tokens):
             logits = self.forward(context[:, -1:])
             probs = torch.softmax(logits, dim=-1)
             next_token = torch.multinomial(probs, num_samples=1)
             context = torch.cat((context, next_token), dim=1)
+
+        if input_was_1d:
+            return context.squeeze(0)
+
         return context
 
         ### ========= TODO : END ========= ###
@@ -533,7 +543,7 @@ class MiniGPT(nn.Module):
             if module._get_name() == "fc2":
                 # GPT-2 style FFN init
                 torch.nn.init.normal_(
-                    module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.num_layers)
+                    module.weight, mean=0.0, std=0.02 / math.sqrt(2 * self.config.num_layers)
                 )
             else:
                 torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
@@ -566,14 +576,20 @@ class MiniGPT(nn.Module):
         """
 
         ### ========= TODO : START ========= ###
+        input_was_1d = context.dim() == 1
+        if input_was_1d:
+            context = context.unsqueeze(0)
 
         for _ in range(max_new_tokens):
-            context = context[:, -self.config.context_length:]
-            logits = self.forward(context)
+            context_cond = context[:, -self.config.context_length:]
+            logits = self.forward(context_cond)
             last_token_logits = logits[:, -1, :]
             probs = torch.softmax(last_token_logits, dim=-1)
             next_token = torch.multinomial(probs, num_samples=1)
             context = torch.cat((context, next_token), dim=1)
+
+        if input_was_1d:
+          return context.squeeze(0)
         return context
 
         ### ========= TODO : END ========= ###
