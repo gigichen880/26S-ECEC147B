@@ -21,25 +21,19 @@ class MLP(nn.Module):
         """
         super(MLP, self).__init__()
         # ========== YOUR CODE HERE ==========
-        # TODO:
-        # self.linear1 = 
-        # self.output = 
-        # self.non_linear = 
-        # ====================================
-        raise NotImplementedError("MLP not implemented")
-    
-
-
+        # TODO (Done):
+        self.linear1 = nn.Linear(input_size, hidden_size)
+        self.output = nn.Linear(hidden_size, action_size)
+        self.non_linear = non_linear()
         # ========== YOUR CODE ENDS ==========
 
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("MLP forward not implemented")
-    
-
-
+        x = self.non_linear(self.linear1(x))
+        x = self.output(x)
         # ========== YOUR CODE ENDS ==========
         return x
+    
 
 class Nature_Paper_Conv(nn.Module):
     """
@@ -61,17 +55,32 @@ class Nature_Paper_Conv(nn.Module):
         """
         super(Nature_Paper_Conv, self).__init__()
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("Nature_Paper_Conv not implemented")
-    
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )
 
+        with torch.no_grad():
+            dummy_input = torch.zeros(1, *input_size)
+            conv_output = self.conv(dummy_input)
+            conv_output_size = conv_output.view(1, -1).size(1)
+
+        self.fc = nn.Sequential(
+            nn.Linear(conv_output_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, action_size)
+        )
 
         # ========== YOUR CODE ENDS ==========
 
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError("Nature_Paper_Conv forward not implemented")
-    
-
-    
+        x = self.conv(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
         # ========== YOUR CODE ENDS ==========
         return x

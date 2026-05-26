@@ -47,13 +47,17 @@ class EnvWrapper(gym.Wrapper):
             info (dict): Env-provided info dict.
         """
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO (Done):
         # 1. call the enviroment reset
         # 2. do nothing for the next self.initial_no_op` steps
         # 3. crop and resize the final frame
         # 4. stack the frames to form the initial state
         # ====================================
-        raise NotImplementedError("reset in env_wrapper not implemented")
+        obs, info = self.env.reset(**kwargs)
+        for _ in range(self.initial_no_op):
+            obs, _, _, _, info = self.env.step(self.do_nothing_action)
+        processed_obs = preprocess(obs)
+        self.stacked_state = np.stack([processed_obs] * self.stack_frames, axis=0)
 
         # ========== YOUR CODE ENDS ==========
 
@@ -75,13 +79,23 @@ class EnvWrapper(gym.Wrapper):
             info (dict): Env-provided info dict.
         """
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO (Done):
         # 1. take step(action) on underlying env for `self.skip_frames` steps.
         # 2. sum the immediate rewards
         # 3. preprocess the final observed frame.
         # 4. append new frame to `self.stacked_state` and remove oldest.
         # ====================================
-        raise NotImplementedError("step in env_wrapper not implemented")
+        reward = 0.0
+        terminated = False
+        truncated = False
+        info = {}
+        for _ in range(self.skip_frames):
+            obs, step_reward, terminated, truncated, info = self.env.step(action)
+            reward += step_reward
+            if terminated or truncated:
+                break   
+        processed_obs = preprocess(obs)
+        self.stacked_state = np.concatenate((self.stacked_state[1:], np.expand_dims(processed_obs, axis=0)), axis=0)
 
         # ========== YOUR CODE ENDS ==========
         return self.stacked_state, reward, terminated, truncated, info
