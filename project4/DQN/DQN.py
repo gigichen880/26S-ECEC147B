@@ -165,16 +165,28 @@ class DQN:
             float: the loss, if we do not have enough samples, we return 0
         """
         # ========== YOUR CODE HERE ==========
-        # TODO: some hints to get you started:
+        # TODO(DONE): some hints to get you started:
         # 1. check if the replay buffer has enough samples
+        if len(self.replay_buffer) < 10 * self.batch_size:
+            return False, 0.0
         # 2. sample a minibatch
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size, self.device)
         # 4. compute current Q: q_values = ...
+        q_values = self.model(states).gather(1, actions.unsqueeze(1)).squeeze(1)
         # 5. compute target Q
+        with torch.no_grad():
+            next_q_values = self.model(next_states).max(dim=1)[0]
+            target_q_values = rewards + self.gamma * next_q_values * (~dones).float()
         # 6. compute loss between current Q and target Q
+        loss = self.loss_fn(q_values, target_q_values)
         # 7. backprop
-        # ====================================
-        raise NotImplementedError("optimize_model func in DQN class not implemented")
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
+        self.i_update += 1
+        return True, loss.item()
+       
         # ========== YOUR CODE ENDS ==========
 
     def _sample_action(self, state: np.ndarray, epsilon: float = 0.1) -> int:
@@ -194,8 +206,13 @@ class DQN:
         #  - if probability epsilon: random action
         #  - else: greedy action
         # ====================================
-        raise NotImplementedError("sample_action func in DQN class not implemented")
-
+        if random.random() < epsilon:
+            index = self.env.action_space.sample()
+        else:
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                q_values = self.model(state_tensor)
+            index = q_values.argmax().item()
         # ========== YOUR CODE ENDS ==========
         return index
 
