@@ -298,8 +298,14 @@ class HardUpdateDQN(DQN):
     def __init__(self, env, model, model_kwargs: dict = {}, update_freq: int = 5, *args, **kwargs):
         super().__init__(env, model, model_kwargs, *args, **kwargs)
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO(Done):
         # fill in the initialization and synchronization of the target model weights
+        self.update_freq = update_freq
+        self.target_model = self.model(
+            self.observation_space, self.env.action_space.n, **model_kwargs
+        ).to(self.device)
+        self.target_model.load_state_dict(self.model.state_dict())
+        self.target_model.eval()
         # ====================================
         raise NotImplementedError("HardUpdateDQN class not implemented")
 
@@ -313,12 +319,23 @@ class HardUpdateDQN(DQN):
             float: the loss, if we do not have enough samples, we return 0
         """
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO(Done):
         # hint: you can copy over most of the code from the parent class
         # and only change two lines
-        # ====================================
-        raise NotImplementedError("optimize_model func in HardUpdateDQN class not implemented")
 
+        if len(self.replay_buffer) < 10 * self.batch_size:
+            return False, 0.0
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size, self.device)
+        q_values = self.model(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        with torch.no_grad():
+            next_q_values = self.target_model(next_states).max(dim=1)[0]
+            target_q_values = rewards + self.gamma * next_q_values * (~dones).float()
+        loss = self.loss_fn(q_values, target_q_values)
+        self.optimizer.zero_grad()
+        self.optimizer.step()
+        self._update_model()
+        return True, loss.item()
+    
         # ========== YOUR CODE ENDS ==========
 
     def _update_model(self):
@@ -345,8 +362,9 @@ class SoftUpdateDQN(HardUpdateDQN):
         Soft updates the target model
         """
         # ========== YOUR CODE HERE ==========
-        # TODO
-        # ====================================
-        raise NotImplementedError("update_model func in SoftUpdateDQN class not implemented")
-
+        # TODO(Done)
+        self.i_update += 1
+        with torch.no_grad():
+            for model_param, target_param in zip(self.model.parameters(), self.target_model.parameters()):
+                target_param.data.copy_(self.tau * model_param.data + (1 - self.tau) * target_param.data)
         # ========== YOUR CODE ENDS ==========
