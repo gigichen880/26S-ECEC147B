@@ -55,7 +55,7 @@ class Nature_Paper_Conv(nn.Module):
         """
         super(Nature_Paper_Conv, self).__init__()
         # ========== YOUR CODE HERE ==========
-        self.conv = nn.Sequential(
+        self.CNN = nn.Sequential(
             nn.Conv2d(input_size[0], 32, kernel_size=8, stride=4),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
@@ -66,21 +66,17 @@ class Nature_Paper_Conv(nn.Module):
 
         with torch.no_grad():
             dummy_input = torch.zeros(1, *input_size)
-            conv_output = self.conv(dummy_input)
+            conv_output = self.CNN(dummy_input)
             conv_output_size = conv_output.view(1, -1).size(1)
 
-        self.fc = nn.Sequential(
-            nn.Linear(conv_output_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, action_size)
-        )
+        self.MLP = MLP(input_size=conv_output_size, action_size=action_size, hidden_size=512)
 
         # ========== YOUR CODE ENDS ==========
 
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        x = self.conv(x)
+        x = self.CNN(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        x = self.MLP(x)
         # ========== YOUR CODE ENDS ==========
         return x

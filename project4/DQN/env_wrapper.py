@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
-from Project4.DQN.utils import (
+from utils import (
     preprocess,
 )  # this is a helper function that may be useful to grayscale and crop the image
 
