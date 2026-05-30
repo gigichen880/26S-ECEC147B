@@ -3,13 +3,13 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn
 import gymnasium as gym
-from Project4.DQN.replay_buffer import ReplayBufferDQN
+from replay_buffer import ReplayBufferDQN
 import wandb
 import random
 import numpy as np
 import os
 import time
-from Project4.DQN.utils import exponential_decay
+from utils import exponential_decay
 import typing
 import matplotlib.pyplot as plt
 import pandas as pd
