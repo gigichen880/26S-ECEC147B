@@ -11,6 +11,8 @@ import os
 import time
 from Project4.DQN.utils import exponential_decay
 import typing
+import matplotlib.pyplot as plt
+import pandas as pd
 
 # TODO: change the logging here if you don't like wandb
 
@@ -107,6 +109,14 @@ class DQN:
         os.makedirs(self.save_path, exist_ok=True)
         best_val_reward = -np.inf
 
+        # Local history for report plotting
+        train_episodes = []
+        train_rewards = []
+        train_losses = []
+        val_episodes = []
+        val_mean_rewards = []
+        val_std_rewards = []
+
         for episode in range(n_episodes):
             state, _ = self.env.reset()
             done = False
@@ -132,16 +142,39 @@ class DQN:
                 avg_loss = loss / (i + 1)
             else:
                 avg_loss = loss / i
+    
+            # Save local training history
+            train_episodes.append(episode)
+            train_rewards.append(total_reward)
+            train_losses.append(avg_loss)
+            
+            # W&B logging
             if self.wandb:
-                wandb.log({"total_reward": total_reward, "loss": avg_loss})
+                wandb.log({
+                    "episode": episode,
+                    "train/total_reward": total_reward,
+                    "train/loss": avg_loss,
+                })           
             print(
                 f"Episode: {episode}: Time: {time.time() - start_time} Total Reward: {total_reward} Avg_Loss: {avg_loss}"
             )
+
             if episode % validate_every == validate_every - 1:
                 mean_reward, std_reward = self.validate(n_validation_episodes)
+                
+                val_episodes.append(episode)
+                val_mean_rewards.append(mean_reward)
+                val_std_rewards.append(std_reward)
+
                 if self.wandb:
-                    wandb.log({"mean_reward": mean_reward, "std_reward": std_reward})
+                  wandb.log({
+                    "episode": episode,
+                    "val/mean_reward": mean_reward,
+                    "val/std_reward": std_reward,
+                })   
+                  
                 print("Validation Mean Reward: {} Validation Std Reward: {}".format(mean_reward, std_reward))
+                
                 if mean_reward > best_val_reward:
                     best_val_reward = mean_reward
                     self._save("best")
@@ -149,11 +182,69 @@ class DQN:
             if episode % save_every == save_every - 1:
                 self._save(str(episode))
 
+        # Save final model
         self._save("final")
+
+        # Save training history CSV
+        history_df = pd.DataFrame({
+            "episode": train_episodes,
+            "train_reward": train_rewards,
+            "train_loss": train_losses,
+        })
+        history_path = os.path.join(self.save_path, "training_history.csv")
+        history_df.to_csv(history_path, index=False)
+
+        # Save validation history CSV
+        val_df = pd.DataFrame({
+            "episode": val_episodes,
+            "val_mean_reward": val_mean_rewards,
+            "val_std_reward": val_std_rewards,
+        })
+        val_path = os.path.join(self.save_path, "validation_history.csv")
+        val_df.to_csv(val_path, index=False)
+
+        # Plot training and validation rewards
+        plt.figure(figsize=(9, 5))
+        plt.plot(
+            train_episodes,
+            train_rewards,
+            label="Training reward",
+            alpha=0.6,
+        )
+
+        if len(val_episodes) > 0:
+            plt.errorbar(
+                val_episodes,
+                val_mean_rewards,
+                yerr=val_std_rewards,
+                label="Validation mean reward",
+                marker="o",
+                capsize=3,
+            )
+
+        plt.xlabel("Episode")
+        plt.ylabel("Reward")
+        plt.title("DQN Training and Validation Rewards")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+
+        plot_path = os.path.join(self.save_path, "dqn_reward_curve.png")
+        plt.savefig(plot_path, dpi=200, bbox_inches="tight")
+        plt.show()
+
+        if self.wandb:
+            wandb.log({
+                "reward_curve": wandb.Image(plot_path)
+            })
+
         self.load_model("best")
         mean_reward, std_reward = self.validate(n_test_episodes)
         if self.wandb:
-            wandb.log({"mean_test_reward": mean_reward, "std_test_reward": std_reward})
+            wandb.log({
+                "test/mean_reward": mean_reward,
+                "test/std_reward": std_reward,
+            })
         print("Test Mean Reward: {} Test Std Reward: {}".format(mean_reward, std_reward))
 
     def _optimize_model(self):
