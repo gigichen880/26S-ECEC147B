@@ -332,6 +332,7 @@ class HardUpdateDQN(DQN):
             target_q_values = rewards + self.gamma * next_q_values * (~dones).float()
         loss = self.loss_fn(q_values, target_q_values)
         self.optimizer.zero_grad()
+        loss.backward()
         self.optimizer.step()
         self._update_model()
         return True, loss.item()
