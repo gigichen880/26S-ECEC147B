@@ -204,6 +204,7 @@ class DQN:
         val_df.to_csv(val_path, index=False)
 
         # Plot training and validation rewards
+        algo_name = self.__class__.__name__
         plt.figure(figsize=(9, 5))
         plt.plot(
             train_episodes,
@@ -224,12 +225,12 @@ class DQN:
 
         plt.xlabel("Episode")
         plt.ylabel("Reward")
-        plt.title("DQN Training and Validation Rewards")
+        plt.title(f"{algo_name} Training and Validation Rewards")
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
 
-        plot_path = os.path.join(self.save_path, "dqn_reward_curve.png")
+        plot_path = os.path.join(self.save_path, f"{algo_name}_reward_curve.png")
         plt.savefig(plot_path, dpi=200, bbox_inches="tight")
         plt.show()
 
@@ -392,13 +393,11 @@ class HardUpdateDQN(DQN):
         # TODO(Done):
         # fill in the initialization and synchronization of the target model weights
         self.update_freq = update_freq
-        self.target_model = self.model(
+        self.target_model = model(
             self.observation_space, self.env.action_space.n, **model_kwargs
         ).to(self.device)
         self.target_model.load_state_dict(self.model.state_dict())
         self.target_model.eval()
-        # ====================================
-        raise NotImplementedError("HardUpdateDQN class not implemented")
 
         # ========== YOUR CODE ENDS ==========
 
