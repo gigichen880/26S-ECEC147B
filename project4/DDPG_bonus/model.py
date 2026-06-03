@@ -27,10 +27,15 @@ class Actor(nn.Module):
         """
         super(Actor, self).__init__()
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO (Done):
         # define the fully connected layers for the actor
-        # ====================================
-        raise NotImplementedError
+        state_dim = int(np.prod(input_size))
+
+        self.fc1 = nn.Linear(state_dim, 400)
+        self.fc2 = nn.Linear(400, 300)
+        self.fc3 = nn.Linear(300, action_size)
+
+        self.init_weights()
     
         # ========== YOUR CODE ENDS ==========
         
@@ -40,17 +45,24 @@ class Actor(nn.Module):
             init_w (float, optional): the onesided range of the uniform distribution for the final layer. Defaults to 3e-3.
         """
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO (Done):
         # initialize the weights of the model
-        # ====================================
-        raise NotImplementedError
-    
+        self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
+        self.fc2.weight.data = fanin_init(self.fc2.weight.data.size())
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+        self.fc1.bias.data.fill_(0.0)
+        self.fc2.bias.data.fill_(0.0)
+        self.fc3.bias.data.uniform_(-init_w, init_w)
         # ========== YOUR CODE ENDS ==========
     
     def forward(self, x:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError
-
+        x = x.view(x.size(0), -1)  # flatten the input
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
+        return x
         # ========== YOUR CODE ENDS ==========
     
 
@@ -70,17 +82,27 @@ class Critic(nn.Module):
         """
         super(Critic, self).__init__()
         # ========== YOUR CODE HERE ==========
-        # TODO: 
+        # TODO (Done):
         # define the fully connected layers for the critic and initialize the weights
-        # ====================================
-        raise NotImplementedError
+        state_dim = int(np.prod(input_size))
+        self.fc1 = nn.Linear(state_dim, 400)
+        self.fc2 = nn.Linear(400 + action_size, 300)
+        self.fc3 = nn.Linear(300, 1)
+        self.init_weights()
     
         # ========== YOUR CODE ENDS ==========
         
     def init_weights(self,init_w=3e-3):
         # ========== YOUR CODE HERE ==========
-        # TODO:
+        # TODO (Done):
         # initialize the weights of the model
+        self.fc1.weight.data = fanin_init(self.fc1.weight.data.size())
+        self.fc2.weight.data = fanin_init(self.fc2.weight.data.size())
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+        self.fc1.bias.data.fill_(0.0)
+        self.fc2.bias.data.fill_(0.0)
+        self.fc3.bias.data.uniform_(-init_w, init_w)
         # ====================================
         raise NotImplementedError
     
@@ -88,6 +110,13 @@ class Critic(nn.Module):
         
     def forward(self, x:torch.Tensor, a:torch.Tensor)->torch.Tensor:
         # ========== YOUR CODE HERE ==========
-        raise NotImplementedError
-    
+        x = x.view(x.size(0), -1)  # flatten the input
+        a = a.view(a.size(0), -1)  # flatten the action input
+
+        x = F.relu(self.fc1(x))
+        x = torch.cat([x, a], dim=1)  # concatenate the state
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+
+        return x
         # ========== YOUR CODE ENDS ==========
