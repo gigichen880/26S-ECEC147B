@@ -247,7 +247,12 @@ class DQN:
                 "test/std_reward": std_reward,
             })
         print("Test Mean Reward: {} Test Std Reward: {}".format(mean_reward, std_reward))
-
+        return {
+            "test_mean_reward": mean_reward,
+            "test_std_reward": std_reward,
+            "save_path": self.save_path,
+        }
+    
     def _optimize_model(self):
         """
         Performs one optimization step on the DQN.
