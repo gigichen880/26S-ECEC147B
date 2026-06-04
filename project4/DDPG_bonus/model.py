@@ -103,8 +103,6 @@ class Critic(nn.Module):
         self.fc1.bias.data.fill_(0.0)
         self.fc2.bias.data.fill_(0.0)
         self.fc3.bias.data.uniform_(-init_w, init_w)
-        # ====================================
-        raise NotImplementedError
     
         # ========== YOUR CODE ENDS ==========
         
